@@ -1,0 +1,45 @@
+pipeline {
+  agent any
+  environment {
+    IMAGE = "localhost:5000/mon-app"
+    TAG = "${env.BUILD_NUMBER ?: '0.1.0'}"
+    KUBECONFIG = "/var/jenkins_home/.kube/config"
+  }
+  stages {
+    stage('Checkout') {
+      steps { git branch: 'main', url: 'https://github.com/TON/mon-app.git' }
+    }
+    stage('Build Docker image') {
+      steps {
+        sh "docker build -t ${IMAGE}:${TAG} ."
+      }
+    }
+    stage('Push image to local registry') {
+      steps {
+        sh "docker push ${IMAGE}:${TAG}"
+      }
+    }
+    stage('Update K8s manifests') {
+      steps {
+        // utilise yq/jq ou sed pour remplacer le tag dans deployment.yaml
+        sh "sed -i 's|image: localhost:5000/mon-app:.*|image: localhost:5000/mon-app:${TAG}|' k8s/deployment.yaml"
+      }
+    }
+    stage('Deploy to Kubernetes') {
+      steps {
+        sh "kubectl apply -f k8s/deployment.yaml"
+        sh "kubectl apply -f k8s/service.yaml"
+      }
+    }
+    stage('Smoke test') {
+      steps {
+        // check pods ready
+        sh "kubectl rollout status deployment/mon-app-deployment --timeout=2m"
+      }
+    }
+  }
+  post {
+    success { echo "Déploiement OK: ${IMAGE}:${TAG}" }
+    failure { echo "Echec pipeline" }
+  }
+}

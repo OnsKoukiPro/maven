@@ -1,0 +1,7 @@
+image:
+  repository: localhost:5000/mon-app
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+service:
+  type: NodePort
+  port: 80
