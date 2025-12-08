@@ -3,12 +3,14 @@ terraform {
   required_providers {
     docker = {
       source  = "kreuzwerker/docker"
-      version = "~> 3.0.1"
+      version = "~> 3.0"  # Version plus flexible
     }
   }
 }
 
-provider "docker" {}
+provider "docker" {
+  host = "unix:///var/run/docker.sock"
+}
 
 # --- 1. Ressource : Base de Données PostgreSQL ---
 
