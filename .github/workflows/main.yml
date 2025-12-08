@@ -1,0 +1,65 @@
+name: Terraform IaC CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  terraform-deploy:
+    name: Deploy Infrastructure with Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      # Étape 1 : Récupération du code source
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Étape 2 : Configuration de Docker (déjà disponible sur ubuntu-latest)
+      - name: Verify Docker Installation
+        run: docker --version
+
+      # Étape 3 : Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      # Étape 4 : Initialisation de Terraform
+      - name: Terraform Init
+        run: terraform init
+
+      # Étape 5 : Validation du code Terraform
+      - name: Terraform Validate
+        run: terraform validate
+
+      # Étape 6 : Planification des changements
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan
+        continue-on-error: false
+
+      # Étape 7 : Application des changements (seulement sur push vers master)
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: terraform apply -auto-approve tfplan
+
+      # Étape 8 : Affichage des outputs
+      - name: Display Outputs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: terraform output
+
+      # Étape 9 : Test de l'application (optionnel)
+      - name: Test Application
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          sleep 10
+          curl -f http://localhost:8080 || echo "Application non accessible"
+
+      # Étape 10 : Destruction (à décommenter si nécessaire pour cleanup)
+      # - name: Terraform Destroy
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      #   run: terraform destroy -auto-approve
