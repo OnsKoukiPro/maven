@@ -3,14 +3,12 @@ terraform {
   required_providers {
     docker = {
       source  = "kreuzwerker/docker"
-      version = "~> 3.0"  # Version plus flexible
+      version = "~> 3.0"
     }
   }
 }
 
-provider "docker" {
-  host = "unix:///var/run/docker.sock"
-}
+provider "docker" {}
 
 # --- 1. Ressource : Base de Données PostgreSQL ---
 
@@ -26,8 +24,8 @@ resource "docker_container" "db_container" {
   image = docker_image.postgres_image.image_id
 
   ports {
-    internal = 5433
-    external = 5433
+    internal = 5432
+    external = 5432
   }
 
   # Configuration de la DB via les variables d'environnement
