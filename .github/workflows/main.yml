@@ -16,50 +16,71 @@ jobs:
     steps:
       # Étape 1 : Récupération du code source
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Étape 2 : Configuration de Docker (déjà disponible sur ubuntu-latest)
+      # Étape 2 : Configuration de Docker
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Étape 3 : Verify Docker Installation
       - name: Verify Docker Installation
         run: docker --version
 
-      # Étape 3 : Setup Terraform
+      # Étape 4 : Setup Terraform
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
 
-      # Étape 4 : Initialisation de Terraform
+      # Étape 5 : Initialisation de Terraform
       - name: Terraform Init
         run: terraform init
+        env:
+          TF_CLI_ARGS_init: "-upgrade"
 
-      # Étape 5 : Validation du code Terraform
+      # Étape 6 : Validation du code Terraform
       - name: Terraform Validate
         run: terraform validate
 
-      # Étape 6 : Planification des changements
+      # Étape 7 : Format Check (optionnel mais recommandé)
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        continue-on-error: true
+
+      # Étape 8 : Planification des changements
       - name: Terraform Plan
         id: plan
         run: terraform plan -out=tfplan
         continue-on-error: false
 
-      # Étape 7 : Application des changements (seulement sur push vers master)
+      # Étape 9 : Application des changements (seulement sur push vers master)
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: terraform apply -auto-approve tfplan
 
-      # Étape 8 : Affichage des outputs
+      # Étape 10 : Affichage des outputs
       - name: Display Outputs
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: terraform output
 
-      # Étape 9 : Test de l'application (optionnel)
+      # Étape 11 : Vérification des conteneurs créés
+      - name: Verify Containers
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          echo "Conteneurs Docker actifs :"
+          docker ps
+
+      # Étape 12 : Test de l'application
       - name: Test Application
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
-          sleep 10
-          curl -f http://localhost:8080 || echo "Application non accessible"
+          echo "Attente du démarrage de l'application..."
+          sleep 15
+          echo "Test de l'application sur localhost:8080"
+          curl -f http://localhost:8080 || echo "⚠️ Application non accessible"
 
-      # Étape 10 : Destruction (à décommenter si nécessaire pour cleanup)
-      # - name: Terraform Destroy
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      #   run: terraform destroy -auto-approve
+      # Étape 13 : Cleanup - Destruction de l'infrastructure (optionnel)
+      - name: Terraform Destroy (Cleanup)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: terraform destroy -auto-approve
+        continue-on-error: true
