@@ -31,56 +31,70 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
+          terraform_wrapper: false
 
-      # Étape 5 : Contourner le problème de signature expirée du provider Docker
-      - name: Skip Provider Signature Verification
+      # SOLUTION DÉFINITIVE : Télécharger le provider manuellement
+      - name: Download Docker Provider Manually (Bypass Signature Check)
         run: |
-          mkdir -p ~/.terraform.d
-          cat > ~/.terraform.d/terraform.rc <<EOF
+          mkdir -p ~/.terraform.d/plugins/registry.terraform.io/kreuzwerker/docker/3.0.2/linux_amd64
+          cd ~/.terraform.d/plugins/registry.terraform.io/kreuzwerker/docker/3.0.2/linux_amd64
+          wget -q https://github.com/kreuzwerker/terraform-provider-docker/releases/download/v3.0.2/terraform-provider-docker_3.0.2_linux_amd64.zip
+          unzip -q terraform-provider-docker_3.0.2_linux_amd64.zip
+          rm terraform-provider-docker_3.0.2_linux_amd64.zip
+          chmod +x terraform-provider-docker_v3.0.2
+
+      # Étape 6 : Configuration pour utiliser le provider local
+      - name: Configure Terraform CLI
+        run: |
+          cat > ~/.terraformrc <<EOF
           provider_installation {
+            filesystem_mirror {
+              path    = "$HOME/.terraform.d/plugins"
+              include = ["kreuzwerker/docker"]
+            }
             direct {
-              exclude = []
+              exclude = ["kreuzwerker/docker"]
             }
           }
           EOF
 
-      # Étape 6 : Initialisation de Terraform
+      # Étape 7 : Initialisation de Terraform
       - name: Terraform Init
         run: terraform init -upgrade
 
-      # Étape 7 : Validation du code Terraform
+      # Étape 8 : Validation du code Terraform
       - name: Terraform Validate
         run: terraform validate
 
-      # Étape 8 : Format Check (optionnel mais recommandé)
+      # Étape 9 : Format Check (optionnel mais recommandé)
       - name: Terraform Format Check
         run: terraform fmt -check
         continue-on-error: true
 
-      # Étape 9 : Planification des changements
+      # Étape 10 : Planification des changements
       - name: Terraform Plan
         id: plan
         run: terraform plan -out=tfplan
         continue-on-error: false
 
-      # Étape 9 : Application des changements (seulement sur push vers master)
+      # Étape 11 : Application des changements (seulement sur push vers master)
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: terraform apply -auto-approve tfplan
 
-      # Étape 11 : Affichage des outputs
+      # Étape 12 : Affichage des outputs
       - name: Display Outputs
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: terraform output
 
-      # Étape 12 : Vérification des conteneurs créés
+      # Étape 13 : Vérification des conteneurs créés
       - name: Verify Containers
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           echo "Conteneurs Docker actifs :"
           docker ps
 
-      # Étape 13 : Test de l'application
+      # Étape 14 : Test de l'application
       - name: Test Application
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
@@ -89,7 +103,7 @@ jobs:
           echo "Test de l'application sur localhost:8080"
           curl -f http://localhost:8080 || echo "⚠️ Application non accessible"
 
-      # Étape 14 : Cleanup - Destruction de l'infrastructure (optionnel)
+      # Étape 15 : Cleanup - Destruction de l'infrastructure (optionnel)
       - name: Terraform Destroy (Cleanup)
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: terraform destroy -auto-approve
