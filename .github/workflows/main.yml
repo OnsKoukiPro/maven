@@ -33,7 +33,7 @@ jobs:
           terraform_version: 1.6.0
           terraform_wrapper: false
 
-      # SOLUTION DÉFINITIVE : Télécharger le provider manuellement
+
       - name: Download Docker Provider Manually (Bypass Signature Check)
         run: |
           mkdir -p ~/.terraform.d/plugins/registry.terraform.io/kreuzwerker/docker/3.0.2/linux_amd64
@@ -66,7 +66,7 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # Étape 9 : Format Check (optionnel mais recommandé)
+      # Étape 9 : Format Check
       - name: Terraform Format Check
         run: terraform fmt -check
         continue-on-error: true
@@ -77,7 +77,7 @@ jobs:
         run: terraform plan -out=tfplan
         continue-on-error: false
 
-      # Étape 11 : Application des changements (seulement sur push vers master)
+      # Étape 11 : Application des changements
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: terraform apply -auto-approve tfplan
@@ -103,7 +103,7 @@ jobs:
           echo "Test de l'application sur localhost:8080"
           curl -f http://localhost:8080 || echo "⚠️ Application non accessible"
 
-      # Étape 15 : Cleanup - Destruction de l'infrastructure (optionnel)
+      # Étape 15 : Cleanup 
       - name: Terraform Destroy (Cleanup)
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: terraform destroy -auto-approve
